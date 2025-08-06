@@ -1,0 +1,212 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(INVESTIGATOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  cases     Case[]
+  evidence  Evidence[]
+  transcriptions Transcription[]
+  reports   Report[]
+  auditLogs AuditLog[]
+  
+  @@map("users")
+}
+
+model Case {
+  id          String      @id @default(cuid())
+  caseNumber  String      @unique
+  title       String
+  description String?
+  status      CaseStatus  @default(UNDER_INVESTIGATION)
+  priority    Priority    @default(MEDIUM)
+  location    String?
+  latitude    Float?
+  longitude   Float?
+  dueDate     DateTime?
+  assignedTo  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  investigator User?      @relation(fields: [assignedTo], references: [id])
+  evidence     Evidence[]
+  transcriptions Transcription[]
+  reports      Report[]
+  entities     Entity[]
+  
+  @@map("cases")
+}
+
+model Evidence {
+  id          String      @id @default(cuid())
+  filename    String
+  originalName String
+  filePath    String
+  fileSize    Int
+  mimeType    String
+  type        EvidenceType
+  description String?
+  analysisResult Json?
+  caseId      String
+  uploadedBy  String
+  uploadedAt  DateTime    @default(now())
+  
+  // Relations
+  case        Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  uploader    User        @relation(fields: [uploadedBy], references: [id])
+  
+  @@map("evidence")
+}
+
+model Transcription {
+  id          String   @id @default(cuid())
+  title       String
+  audioPath   String
+  transcript  String?
+  formattedTranscript String?
+  duration    Int?
+  speakers    Int?
+  caseId      String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  creator     User     @relation(fields: [createdBy], references: [id])
+  
+  @@map("transcriptions")
+}
+
+model Entity {
+  id          String      @id @default(cuid())
+  name        String
+  type        EntityType
+  value       String
+  confidence  Float
+  source      String?
+  caseId      String
+  createdAt   DateTime    @default(now())
+  
+  // Relations
+  case        Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  
+  @@map("entities")
+}
+
+model Report {
+  id          String      @id @default(cuid())
+  title       String
+  type        ReportType
+  content     String
+  filePath    String?
+  caseId      String
+  generatedBy String
+  createdAt   DateTime    @default(now())
+  
+  // Relations
+  case        Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  generator   User        @relation(fields: [generatedBy], references: [id])
+  
+  @@map("reports")
+}
+
+model CrimeData {
+  id          String   @id @default(cuid())
+  crimeType   String
+  latitude    Float
+  longitude   Float
+  date        DateTime
+  time        String
+  description String?
+  severity    Int      @default(1)
+  createdAt   DateTime @default(now())
+  
+  @@map("crime_data")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String
+  entityType  String?
+  entityId    String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@map("audit_logs")
+}
+
+enum UserRole {
+  INVESTIGATOR
+  SUPERVISOR
+  ADMIN
+}
+
+enum CaseStatus {
+  UNDER_INVESTIGATION
+  REPORT_SUBMITTED
+  CLOSED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum EvidenceType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  CSV
+  XLSX
+  PDF
+  TEXT
+}
+
+enum EntityType {
+  PERSON
+  ORGANIZATION
+  LOCATION
+  DATE
+  TIME
+  PHONE_NUMBER
+  VEHICLE
+  LICENSE_PLATE
+  CASE_NUMBER
+}
+
+enum ReportType {
+  INITIAL_INVESTIGATION
+  EVIDENCE_SUMMARY
+  FINAL_REPORT
+  INTERROGATION_REPORT
+}
